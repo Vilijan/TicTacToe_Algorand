@@ -55,24 +55,13 @@ WIN_POSITIONS = [
 WINING_STATES = [448, 56, 7, 292, 146, 73, 273, 84]
 
 
-#
-# sum_even = 0
-# sum_odd = 0
-# for i, v in enumerate(powers_of_two):
-#     if i % 2 == 0:
-#         sum_even += v
-#     else:
-#         sum_odd += v
-#
-# print(sum_even)
-# print(sum_odd)
-
-
 def application_start():
     is_app_initialization = Txn.application_id() == Int(0)
     actions = Cond(
         [Txn.application_args[0] == AppActions.SetupPlayers, initialize_game_state()],
-        [Txn.application_args[0] == AppActions.ActionMove, play_action()]
+        [And(Txn.application_args[0] == AppActions.ActionMove,
+             Global.group_size() == Int(1)), play_action()],
+        [Txn.application_args[0] == AppActions.MoneyRefund, money_refund()]
     )
 
     return If(is_app_initialization, app_initialization_logic(), actions)
