@@ -239,30 +239,19 @@ def perform_action():
 #               If(are_actions_used, perform_action(), Return(Int(0))))
 
 
-# def application_start():
-#     return Seq([
-#         App.globalPut(Bytes(AppVariables.GameBoard), Bytes(DefaultValues.GameBoard)),
-#         App.globalPut(Bytes(AppVariables.WinnerAddress), Bytes(DefaultValues.WinnerAddress)),
-#         App.globalPut(Bytes(AppVariables.PlayerTurn), Bytes(DefaultValues.PlayerTurn)),
-#         # TODO: Those need to be removed.
-#         App.globalPut(Bytes(AppVariables.PlayerOAddress), Bytes("O")),
-#         App.globalPut(Bytes(AppVariables.PlayerXAddress), Bytes("X")),
-#         play_action(pos=Int(0),
-#                     player_mark=Bytes("X")),
-#         App.globalPut(Bytes("temp_x"), Bytes("X--------")),
-#         Return(Int(1))
-#     ])
-
-powers_of_two = [1, 2, 4, 8, 16, 32, 64, 128, 256]
-
 def application_start():
-    s1 = BitwiseOr(Int(powers_of_two[7]), Int(powers_of_two[8]))
     return Seq([
-        App.globalPut(Bytes("2e8 or 2e7"), s1),
-        App.globalPut(Bytes("2e8 or 2e7 or 2e6"), BitwiseOr(s1, Int(powers_of_two[6]))),
+        App.globalPut(Bytes(AppVariables.GameBoard), Bytes(DefaultValues.GameBoard)),
+        App.globalPut(Bytes(AppVariables.WinnerAddress), Bytes(DefaultValues.WinnerAddress)),
+        App.globalPut(Bytes(AppVariables.PlayerTurn), Bytes(DefaultValues.PlayerTurn)),
+        # TODO: Those need to be removed.
+        App.globalPut(Bytes(AppVariables.PlayerOAddress), Bytes("O")),
+        App.globalPut(Bytes(AppVariables.PlayerXAddress), Bytes("X")),
+        play_action(pos=Int(0),
+                    player_mark=Bytes("X")),
+        App.globalPut(Bytes("temp_x"), Bytes("X--------")),
         Return(Int(1))
     ])
-
 
 
 
