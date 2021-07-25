@@ -235,12 +235,14 @@ def money_refund_logic():
 
     x_withdraw = Seq([
         Assert(Gtxn[1].receiver() == App.globalGet(AppVariables.PlayerXAddress)),
-        Assert(Gtxn[1].amount() == Int(2) * App.globalGet(AppVariables.BetAmount))
+        Assert(Gtxn[1].amount() == Int(2) * App.globalGet(AppVariables.BetAmount)),
+        App.globalPut(AppVariables.GameStatus, Int(1))
     ])
 
     o_withdraw = Seq([
         Assert(Gtxn[1].receiver() == App.globalGet(AppVariables.PlayerOAddress)),
-        Assert(Gtxn[1].amount() == Int(2) * App.globalGet(AppVariables.BetAmount))
+        Assert(Gtxn[1].amount() == Int(2) * App.globalGet(AppVariables.BetAmount)),
+        App.globalPut(AppVariables.GameStatus, Int(2))
     ])
 
     tie_withdraw = Seq([

@@ -8,7 +8,7 @@ from algosdk.v2client import algod
 class NetworkInteraction:
 
     @staticmethod
-    def wait_for_confirmation(client: algod.AlgodClient, txid):
+    def wait_for_confirmation(client: algod.AlgodClient, txid, log=True):
         """
         Utility function to wait until the transaction is
         confirmed before proceeding.
@@ -16,11 +16,13 @@ class NetworkInteraction:
         last_round = client.status().get('last-round')
         txinfo = client.pending_transaction_info(txid)
         while not (txinfo.get('confirmed-round') and txinfo.get('confirmed-round') > 0):
-            print("Waiting for confirmation")
+            if log:
+                print("Waiting for confirmation")
             last_round += 1
             client.status_after_block(last_round)
             txinfo = client.pending_transaction_info(txid)
-        print(f"Transaction {txid} confirmed in round {txinfo.get('confirmed-round')}.")
+        if log:
+            print(f"Transaction {txid} confirmed in round {txinfo.get('confirmed-round')}.")
         return txinfo
 
     @staticmethod
@@ -58,10 +60,10 @@ class NetworkInteraction:
             print('Unsuccessful creation of Algorand Standard Asset.')
 
     @staticmethod
-    def submit_transaction(client: algod.AlgodClient, transaction: SignedTransaction) -> Optional[str]:
+    def submit_transaction(client: algod.AlgodClient, transaction: SignedTransaction, log=True) -> Optional[str]:
         txid = client.send_transaction(transaction)
 
-        NetworkInteraction.wait_for_confirmation(client, txid)
+        NetworkInteraction.wait_for_confirmation(client, txid, log)
 
         return txid
 
