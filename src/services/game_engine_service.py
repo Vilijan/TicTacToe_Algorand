@@ -37,7 +37,7 @@ class GameEngineService:
 
     def deploy_application(self, client):
         """
-        Creates and sends the transactions to the network that does the initialization of the Tic-Tac-Toe game.
+        Creates and sends the transaction to the network that does the initialization of the Tic-Tac-Toe game.
         :param client:
         :return:
         """
@@ -79,6 +79,14 @@ class GameEngineService:
         print(f'Tic-Tac-Toe application deployed with the application_id: {self.app_id}')
 
     def start_game(self, client):
+        """
+        Atomic transfer of 3 transactions:
+        - 1. Application call
+        - 2. Payment from the Player X address to the Escrow fund address
+        - 3. Payment from the Player O address to the Escrow fund address
+        :param client:
+        :return:
+        """
         if self.app_id is None:
             raise ValueError('The application has not been deployed')
 
@@ -141,6 +149,13 @@ class GameEngineService:
         print(f'Game started with the transaction_id: {txid}')
 
     def play_action(self, client, player_id: str, action_position: int):
+        """
+        Application call transaction that performs an action for the specified player at the specified action position.
+        :param client:
+        :param player_id: "X" or "O"
+        :param action_position: action position in the range of [0, 8]
+        :return:
+        """
         if player_id != "X" and player_id != "O":
             raise ValueError('Invalid player id! The player_id should be X or O.')
 
@@ -167,6 +182,11 @@ class GameEngineService:
         print(f'{player_id} has been put at position {action_position} in transaction with id: {tx_id}')
 
     def fund_escrow(self, client):
+        """
+        Funding the escrow address in order to handle the transactions fees for refunding.
+        :param client:
+        :return:
+        """
         fund_escrow_txn = PaymentTransactionRepository.payment(client=client,
                                                                sender_address=self.app_creator_address,
                                                                receiver_address=self.escrow_fund_address,
@@ -181,6 +201,14 @@ class GameEngineService:
         print(f'Escrow address has been funded in transaction with id: {tx_id}')
 
     def win_money_refund(self, client, player_id: str):
+        """
+        Atomic transfer of 2 transactions:
+        1. Application call
+        2. Payment from the Escrow account to winner address either PlayerX or PlayerO.
+        :param client:
+        :param player_id: "X" or "O".
+        :return:
+        """
         if player_id != "X" and player_id != "O":
             raise ValueError('Invalid player id! The player_id should be X or O.')
 
@@ -228,6 +256,14 @@ class GameEngineService:
         print(f'The winning money have been refunded to the player {player_id} in the transaction with id: {txid}')
 
     def tie_money_refund(self, client):
+        """
+        Atomic transfer of 3 transactions:
+        1. Application call
+        2. Payment from the escrow address to the PlayerX address.
+        3. Payment from the escrow address to the PlayerO address.
+        :param client:
+        :return:
+        """
         if self.app_id is None:
             raise ValueError('The application has not been deployed')
 
