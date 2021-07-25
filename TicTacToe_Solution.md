@@ -24,13 +24,18 @@ The Tic-Tac-Toe decentralized application has two main components:
 
 In order to optimize the state representation and state transitions in the Tic-Tac-Toe DApp I decided to implement them as bitmasks and use [bit manipulations](https://en.wikipedia.org/wiki/Bit_manipulation) for the state transitions. 
 
-The game state is represented as two separate integer variables *state<sub>x</sub>* and *state<sub>o</sub>*. If the *i<sup>th</sup>* bit in the state<sub>x</sub> is on it means that there is a "X" mark at position *i* in the board, while on the other hand if the  *i<sup>th</sup>* bit in the state<sub>o</sub> is active it means that there is a "O" mark at position *i*. The board positions are enumerated from 0 to 8 left to right, while the top left position is numbered with 0 while the bottom right position is numbered with 8. On the following image you can see an image that describes the state representation of the Tic-Tac-Toe game using two bit masks:
+The game state is represented as two separate integer variables *state<sub>x</sub>* and *state<sub>o</sub>*. If the *i<sup>th</sup>* bit in the state<sub>x</sub> is on it means that there is a "X" mark at position *i* in the board, while on the other hand if the  *i<sup>th</sup>* bit in the state<sub>o</sub> is active it means that there is a "O" mark at position *i*. The board positions are enumerated from 0 to 8 left to right, top to bottom. The top left position is numbered with 0 while the bottom right position is numbered with 8. The following image describes the state representation of the Tic-Tac-Toe game using two bit masks:
 
 ![State representation](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/state_representation.png?raw=true)
 
 On the image above we can see how we have decoupled the original Tic-Tac-Toe game state into two separate integer states using bitmasks.
 
+Once we have decided to represent the game state with this format we can use various bit manipulations in order to do state transitions and checks for terminal states. Here are some examples that some of the state transitions that have been used in the Tic-Tac-Toe ASC1:
 
+- `state_x = state_x | (1 << i)` - placing "X" mark at position *i*. We can achieve this by activating the i<sup>th</sup> bit in the *state_x* variable.
+- `valid_move = (state_x & (1 << i)) | (state_o & (1 << i))` - if the *valid_move* variable is equal to 0 it means that the i<sup>th</sup> bit in both of the state variables is not activated which means that the i<sup>th</sup> position is empty in the board. 
+- `has_won = (state_x & 7)` - if the *has_won* variable is equal to 7 it means that the player that plays with mark "X" has won the game by populating the first row with 3 "X"es. With this expression we check whether the bits that represent the first row(bits: 0, 1 and 2) are activated. Note that here we do not check whether those bits are 0s in the *state_o* because we need to make sure in our implementation logic that the i<sup>th</sup> bit can be activated in only one of the state variables.
+- `is_tie = (state_x | state_y)` - if the *is_tie* variable has value of 511 it means that all of the first 9 bits are activated which then means that all of the game board has been filled. 
 
 
 
