@@ -2,6 +2,9 @@ from pyteal import *
 
 
 class AppVariables:
+    """
+    All the variables available in the global state of the application.
+    """
     PlayerXState = Bytes("PlayerXState")
     PlayerOState = Bytes("PlayerOState")
 
@@ -31,44 +34,43 @@ class DefaultValues:
     PlayerOState = Int(0)
     GameStatus = Int(0)
     BetAmount = Int(1000000)
+    GameDurationInSeconds = Int(3600)
 
 
 class AppActions:
+    """
+    Available actions in the tic-tac-toe application.
+    """
     SetupPlayers = Bytes("SetupPlayers")
     ActionMove = Bytes("ActionMove")
     MoneyRefund = Bytes("MoneyRefund")
 
 
-powers_of_two = [1, 2, 4, 8, 16, 32, 64, 128, 256]
-
-WIN_POSITIONS = [
-    (0, 1, 2),  # "XXX******" 448
-    (3, 4, 5),  # "***XXX***" 56
-    (6, 7, 8),  # "******XXX" 7
-    (0, 3, 6),  # "X**X**X**" 292
-    (1, 4, 7),  # "*X**X**X*" 146
-    (2, 5, 8),  # "**X**X**X" 73
-    (0, 4, 8),  # "X***X***X" 273
-    (2, 4, 6),  # "**X*X*X**" 84
-]
-
 WINING_STATES = [448, 56, 7, 292, 146, 73, 273, 84]
 
 
 def application_start():
+    """
+    This function represents the start of the application. Here we decide which action will be executed in the current
+    application call. If we are creating the application for the very first time we are going to initialize some
+    of the global values with their appropriate default values.
+    """
     is_app_initialization = Txn.application_id() == Int(0)
 
     actions = Cond(
-        [Txn.application_args[0] == AppActions.SetupPlayers, initialize_game_state()],
+        [Txn.application_args[0] == AppActions.SetupPlayers, initialize_players_logic()],
         [And(Txn.application_args[0] == AppActions.ActionMove,
-             Global.group_size() == Int(1)), play_action()],
-        [Txn.application_args[0] == AppActions.MoneyRefund, money_refund()]
+             Global.group_size() == Int(1)), play_action_logic()],
+        [Txn.application_args[0] == AppActions.MoneyRefund, money_refund_logic()]
     )
 
     return If(is_app_initialization, app_initialization_logic(), actions)
 
 
 def app_initialization_logic():
+    """
+    Initialization of the default global variables.
+    """
     return Seq([
         App.globalPut(AppVariables.PlayerXState, DefaultValues.PlayerXState),
         App.globalPut(AppVariables.PlayerOState, DefaultValues.PlayerOState),
@@ -78,12 +80,15 @@ def app_initialization_logic():
     ])
 
 
-def initialize_game_state():
+def initialize_players_logic():
     """
-    This should be an atomic transfer of 3 transactions:
-    1. App call
-    2. Player X funding the Escrow
-    3. Player O funding the Escrow.
+    This function initializes all the other global variables. The end of the execution of this function defines the game
+    start. We expect that this logic is performed within an Atomic Transfer of 3 transactions:
+    1. Application Call with the appropriate application action argument.
+    2. Payment transaction from Player X that funds the Escrow account. The address of this sender is represents the
+    PlayerX address.
+    3. Payment transaction from Player O that funds the Escrow account. The address of this sender is represents the
+    PlayerO address.
     :return:
     """
     player_x_address = App.globalGetEx(Int(0), AppVariables.PlayerXAddress)
@@ -94,6 +99,8 @@ def initialize_game_state():
     ])
 
     setup_players = Seq([
+        Assert(Gtxn[1].type_enum() == TxnType.Payment),
+        Assert(Gtxn[2].type_enum() == TxnType.Payment),
         Assert(Gtxn[1].receiver() == Gtxn[2].receiver()),
         Assert(Gtxn[1].amount() == App.globalGet(AppVariables.BetAmount)),
         Assert(Gtxn[2].amount() == App.globalGet(AppVariables.BetAmount)),
@@ -101,8 +108,7 @@ def initialize_game_state():
         App.globalPut(AppVariables.PlayerOAddress, Gtxn[2].sender()),
         App.globalPut(AppVariables.PlayerTurnAddress, Gtxn[1].sender()),
         App.globalPut(AppVariables.FundsEscrowAddress, Gtxn[1].receiver()),
-        # TODO: Define it as a global default variable.
-        App.globalPut(AppVariables.ActionTimeout, Global.latest_timestamp() + Int(300)),
+        App.globalPut(AppVariables.ActionTimeout, Global.latest_timestamp() + DefaultValues.GameDurationInSeconds),
         Return(Int(1))
     ])
 
@@ -114,23 +120,39 @@ def initialize_game_state():
 
 
 def has_player_won(state):
-    return If(Or(state == Int(WINING_STATES[0]),
-                 state == Int(WINING_STATES[1]),
-                 state == Int(WINING_STATES[2]),
-                 state == Int(WINING_STATES[3]),
-                 state == Int(WINING_STATES[4]),
-                 state == Int(WINING_STATES[5]),
-                 state == Int(WINING_STATES[6]),
-                 state == Int(WINING_STATES[7])), Int(1), Int(0))
+    """
+    Checks whether the passed state as an argument is a winning state. There are 8 possible winning states in which
+    a specific pattern of bits needs to be activated.
+    :param state:
+    :return:
+    """
+    return If(Or(BitwiseAnd(state, Int(WINING_STATES[0])) == Int(WINING_STATES[0]),
+                 BitwiseAnd(state, Int(WINING_STATES[1])) == Int(WINING_STATES[1]),
+                 BitwiseAnd(state, Int(WINING_STATES[2])) == Int(WINING_STATES[2]),
+                 BitwiseAnd(state, Int(WINING_STATES[3])) == Int(WINING_STATES[3]),
+                 BitwiseAnd(state, Int(WINING_STATES[4])) == Int(WINING_STATES[4]),
+                 BitwiseAnd(state, Int(WINING_STATES[5])) == Int(WINING_STATES[5]),
+                 BitwiseAnd(state, Int(WINING_STATES[6])) == Int(WINING_STATES[6]),
+                 BitwiseAnd(state, Int(WINING_STATES[7])) == Int(WINING_STATES[7])), Int(1), Int(0))
 
 
 def is_tie():
+    """
+    Checks whether the game has ended with a tie. Tie state is represented with the number 511 which is the number where
+    the first 9 bits are active.
+    :return:
+    """
     state_x = App.globalGet(AppVariables.PlayerXState)
     state_o = App.globalGet(AppVariables.PlayerOState)
     return Int(511) == BitwiseOr(state_x, state_o)
 
 
-def play_action():
+def play_action_logic():
+    """
+    Executes an action for the current player in the game and accordingly updates the state of the game. The action
+    is passed as an argument to the application call.
+    :return:
+    """
     position_index = Int(8) - Btoi(Txn.application_args[1])
 
     state_x = App.globalGet(AppVariables.PlayerXState)
@@ -173,15 +195,20 @@ def play_action():
     ])
 
 
-def money_refund():
+def money_refund_logic():
     """
-    If there is a winner this is atomic transfer of 2 transactions:
-    1. App call
-    2. Escrow -> Winner
-    If there is a tie this is atomic transfer of 3 transactions:
-    1. App call
-    2. Escrow -> Player X
-    3. Escrow -> Player O
+    This function handles the logic for refunding the money in case of a winner, tie or timeout termination. If the
+    player whose turn it is hasn't made a move for the predefined period of time, the other player is declared as a
+    winner and can withdraw the money.
+    This action logic should be performed using an Atomic Transfer of 2 transactions in case of a winner or using an
+    Atomic Transfer of 3 transactions in case of a tie.
+    If there is a winner the Atomic Transfer should have the following 2 transactions:
+    1. Application Call with the appropriate application action argument.
+    2. Payment from the Escrow to the Winner Address with a amount equal to the 2 * BetAmount.
+    If there is a tie the Atomic Transfer should have the following 3 transactions:
+    1. Application Call with the appropriate application action argument.
+    2. Payment from the Escrow to the PlayerX's Address with a amount equal to the BetAmount.
+    3. Payment from the Escrow to the PlayerO's Address with a amount equal to the BetAmount.
     :return:
     """
     has_x_won_by_playing = App.globalGet(AppVariables.GameStatus) == Int(1)
