@@ -2,9 +2,9 @@
 
 In this solution I describe how you can develop the Tic-Tac-Toe game on the Algorand blockchain. The game logic is implemented as a [Stateful Smart Contract](https://developer.algorand.org/docs/features/asc1/stateful/) using [PyTeal](https://pyteal.readthedocs.io/en/latest/overview.html) while the communication with the network is done using the [py-algorand-sdk](https://github.com/algorand/py-algorand-sdk). 
 
-Two players submit equal amount of algos to an escrow address which marks the start of the game. After this step, the players interchangeably place their marks on the board where the placing mark action is implemented as an application call to the Stateful Smart Contract with the desired position passed as an argument. In the end whoever player wins the game is able to withdraw the funds submitted to the escrow address, in case of a tie both players are able to withdraw half of the amount submitted to the escrow address.
+Two players submit equal amount of algos to an escrow address which marks the start of the game. After this step, the players interchangeably place their marks on the board where the placing mark action is implemented as an application call to the Stateful Smart Contract. In the end whoever player wins the game is able to withdraw the funds submitted to the escrow address, in case of a tie both players are able to withdraw half of the amount submitted to the escrow address.
 
-The goal of this solution is to present a starting point for developers to easily build board games as DApps on the Algorand Blockchain. The idea is that they should be able to change the game logic from Tic-Tac-Toe to whichever board game they prefer like: Chess, Connect4, Go or others and deploy it on the network.
+The goal of this solution is to present a starting point for developers to easily build board games as DApps on the Algorand Blockchain. The idea is that they should be able to change the game logic from Tic-Tac-Toe to whichever board game they prefer like Chess, Connect4, Go or others and deploy it on the network.
 
 # Application architecture
 
@@ -12,13 +12,15 @@ The Tic-Tac-Toe decentralized application has two main components:
 
 1. **Smart contracts** - this component contains all of the PyTeal code divided into two submodules:
    - Tic-Tac-Toe ASC1 - this stateful smart contract implements the game logic and defines the interaction between the players and the application. There are 3 possible interactions with this smart contract: starting the game, executing game action and refunding the submitted Algos by the players.
-   - Escrow fund - this is a [stateless smart contract](https://developer.algorand.org/docs/features/asc1/stateless/) that holds the funds submitted by the players on game start. This escrow address is linked to the Tic-Tac-Toe ASC1. On game end, the escrow fund is responsible to make the appropriate refunding of the submitted algos.
+   - Escrow fund - this is a [stateless smart contract](https://developer.algorand.org/docs/features/asc1/stateless/) that holds the funds submitted by the players on game start. This escrow address is linked to the Tic-Tac-Toe ASC1. On game end, the escrow fund is responsible to make the appropriate payment that represents the refunding of the submitted Algos.
 2. **Game Engine service** - this is the submodule which is responsible for submitting the right transactions to the network in order to interact with the smart contracts. Those are the following services that are implemented by the game engine:
-   - Application deployment - creates an application create transaction and deploys the Tic-Tac-Toe ASC1 to the network.
+   - Application deployment - creates the transaction that deploys the Tic-Tac-Toe ASC1 to the network.
    - Start game - submits an [atomic transfer](https://developer.algorand.org/docs/features/atomic_transfers/) of 3 transaction to the network in order to denote the start of the game. 
    - Play action - submits a single application call transaction to the Tic-Tac-Toe ASC1 which executes a move in the game.
-   - Win refund - submits an atomic transfer of 2 transactions to the network that refunds the algos to the winner of the game.
-   - Tie refund - submits an atomic transfer of 3 transactions to the network that refunds the algos to the both players of the game.
+   - Win refund - submits an atomic transfer of 2 transactions to the network that refunds the Algos to the winner of the game.
+   - Tie refund - submits an atomic transfer of 3 transactions to the network that refunds the Algos to the both players of the game.
+
+All of the mentioned points above as well with the corresponding source code will be explained in more details in the later sections.
 
 # State representation and transition
 
@@ -30,7 +32,7 @@ The game state is represented as two separate integer variables *state<sub>x</su
 
 On the image above we can see how we have decoupled the original Tic-Tac-Toe game state into two separate integer states using bitmasks.
 
-Once we have decided to represent the game state with this format we can use various bit manipulations in order to do state transitions and checks for terminal states. Here are some examples that some of the state transitions that have been used in the Tic-Tac-Toe ASC1:
+Once we have decided to represent the game state with this format we can use various bit manipulations in order to do state transitions and checks for terminal states. Here are some examples of some of the state transitions that have been used in the Tic-Tac-Toe ASC1:
 
 - `state_x = state_x | (1 << i)` - placing "X" mark at position *i*. We can achieve this by activating the i<sup>th</sup> bit in the *state_x* variable.
 - `valid_move = (state_x & (1 << i)) | (state_o & (1 << i))` - if the *valid_move* variable is equal to 0 it means that the i<sup>th</sup> bit in both of the state variables is not activated which means that the i<sup>th</sup> position is empty in the board. 
@@ -66,7 +68,7 @@ class AppVariables:
         return 4
 ```
 
-- PlayerXState and PlayerOState - those are integer variables that represent the game board for each of the players. The state representation was described in more details in the previous section.
+- PlayerXState and PlayerOState - those are integer variables that represent the state of the game board for each of the players. The state representation was described in more details in the previous section.
 - PlayerXAddress and PlayerOAddress - those variables represent the addresses for each of the players. They are initialized when the start game action is performed.
 - PlayerTurnAddress - this variable represents the address of the player who needs to place the next mark on the board. The game always starts with the PlayerXAddress and the PlayerTurnAddress is changed on every game action because the players place marks interchangeably. 
 - FundsEscrowAddress - this variable represents the escrow address who is responsible for holding the funds submitted by the players. This address is initialized on the start game action as well. 
@@ -78,5 +80,31 @@ class AppVariables:
   - 2 - means that the game was won by player O.
   - 3 - means that the game ended with a tie.
 
+Some of the global variables can be initialized with defaults values when the first transaction that deploys the applications is executed. On the following image we can see which variables are initialized right away:
 
+```python
+class DefaultValues:
+    PlayerXState = Int(0)
+    PlayerOState = Int(0)
+    GameStatus = Int(0)
+    BetAmount = Int(1000000)
+    GameDurationInSeconds = Int(3600)
+```
 
+- PlayerXState and PlayerOState - at the beginning of the game there are no marks on the board and that is why all of the bits in both states are turned off.
+- GameStatus - once we create the application it becomes available for interactions hence the status 0 described previously.
+- BetAmount - we fix the bet amount to be 1000000 Micro Algos or 1 Algo. With minimal effort we can change this logic to be dynamic which means that the players can define their own bet amount when performing the setup players action.
+- GameDurationInSeconds - defines for how many seconds the players can perform actions in the game. We have defined that after the setting up of the players the game will receive action moves for 1 hour.
+
+As mention before there are possible interactions with the smart contract:
+
+```python
+class AppActions:
+    SetupPlayers = Bytes("SetupPlayers")
+    ActionMove = Bytes("ActionMove")
+    MoneyRefund = Bytes("MoneyRefund")
+```
+
+- SetupPlayers - this action setups all of the global variables that haven't been initialized and marks the start of the game. This action can be performed only once and it is done through atomic transfer with 3 transactions which will be described in more details later on.
+- ActionMove - this action performs a single game move which is placing a mark on the board. This is done through an application call to the Tic-Tac-Toe ASC1 where the target position for the mark is passed as an argument. The sender of this transaction should match the PlayerTurnAddress global variable.
+- MoneyRefund - this actions validates the withdraw logic after the game has ended by the players or by a timeout. This action is executed when the Tic-Tac-Toe ASC1 is called with atomic transfer of 2 transaction in case of a win or atomic transfer of 3 transactions in case of a tie.
