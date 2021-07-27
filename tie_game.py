@@ -3,7 +3,7 @@ from src.services.game_engine_service import GameEngineService
 
 client = get_client()
 
-acc_pk, acc_address, _ = get_account_credentials(account_id=3)
+acc_pk, acc_address, _ = get_account_credentials(account_id=4)
 player_x_pk, player_x_address, _ = get_account_credentials(account_id=1)
 player_o_pk, player_o_address, _ = get_account_credentials(account_id=2)
 

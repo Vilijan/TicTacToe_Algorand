@@ -28,7 +28,7 @@ In order to optimize the state representation and state transitions in the Tic-T
 
 The game state is represented as two separate integer variables *state<sub>x</sub>* and *state<sub>o</sub>*. If the *i<sup>th</sup>* bit in the state<sub>x</sub> is on it means that there is a "X" mark at position *i* in the board, while on the other hand if the  *i<sup>th</sup>* bit in the state<sub>o</sub> is active it means that there is a "O" mark at position *i*. The board positions are enumerated from 0 to 8 left to right, top to bottom. The top left position is numbered with 0 while the bottom right position is numbered with 8. The following image describes the state representation of the Tic-Tac-Toe game using two bit masks:
 
-![State representation](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/state_representation.png?raw=true)
+![State representation](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/btimask_state.png?raw=true)
 
 On the image above we can see how we have decoupled the original Tic-Tac-Toe game state into two separate integer states using bitmasks.
 
@@ -109,7 +109,7 @@ class AppActions:
 - **ActionMove** - this action performs a single game move which is placing a mark on the board. This is done through an application call to the Tic-Tac-Toe ASC1 where the target position for the mark is passed as an argument. The sender of this transaction should match the PlayerTurnAddress global variable. If we try to place a mark on a already populated position the smart contract should reject that transaction.
 - **MoneyRefund** - this action validates the withdraw logic after the game has ended by the players or by a timeout. This action is executed when the Tic-Tac-Toe ASC1 is called with atomic transfer of 2 transaction in case of a win or atomic transfer of 3 transactions in case of a tie.
 
-#### Application start
+### Application start
 
 This function represents the start of the Tic-Tac-Toe ASC1 application. Here we decide which action will be executed in the current application call. The specified action should be passed as a string and a first argument to the application call transaction. If we are creating the application for the very first time we are going to initialize the default global variables.
 
@@ -127,7 +127,7 @@ def application_start():
     return If(is_app_initialization, app_initialization_logic(), actions)
 ```
 
-#### Application initialization logic
+### Application initialization logic
 
 With this function we are going to initialize the default global variables.
 
@@ -142,15 +142,15 @@ def app_initialization_logic():
     ])
 ```
 
-#### Setup players
+### Setup players
 
 This function initializes all the other global variables and additionally marks the start of the game. We expect that this logic is performed within an Atomic Transfer of 3 transactions:
 
-1. Application call transaction to the smart contract where the first argument passed to the transaction is "SetupPlayers".
-2. Payment transaction from PlayerX that funds the Escrow account. The address of the sender of this transaction is stored in the PlayerXAddress global variable. Additionally, the amount of the payment transaction should equal to the predefined BetAmount.
-3. Payment transaction from PlayerO that funds the Escrow account. Similarly, the sender of this transaction is stored in the PlayerOAddress global variable and the amount of the transaction should equal to the BetAmount.
+1. **Application call transaction** to the smart contract where the first argument passed to the transaction is "SetupPlayers" which denotes that this action should be performed within the application.
+2. **Payment transaction** from PlayerX that funds the Escrow account. The address of the sender of this transaction is stored in the PlayerXAddress global variable. Additionally, the amount of the payment transaction should equal to the predefined BetAmount.
+3. **Payment transaction** from PlayerO that funds the Escrow account. Similarly, the sender of this transaction is stored in the PlayerOAddress global variable and the amount of the transaction should equal to the BetAmount.
 
-We want to be able to execute this code logic only once because we don't want in the middle of the game to change the players addresses. 
+We want to be able to execute this code logic only once because we don't want in the middle of the game to change the players addresses. Additionally, the receiver of both payment transactions should be the same which is the escrow address. We store this address in the FundsEscrowAddress global variable.
 
 ```python
 def initialize_players_logic():
@@ -182,7 +182,7 @@ def initialize_players_logic():
     ])
 ```
 
-#### Action move
+### Action move
 
 In order to execute an action, we first must check what is the current state of the game. To decouple the code a little bit, we create two separate functions *has_player_won(state)* and *is_tie()* to check whether the game is in a terminal i.e leaf state.
 
@@ -200,4 +200,18 @@ def has_player_won(state):
                  BitwiseAnd(state, Int(WINING_STATES[7])) == Int(WINING_STATES[7])), Int(1), Int(0))
 ```
 
-In the Tic-Tac-Toe game there are 8 possible winning states. Since we are representing the game state as a bit mask the numbers specified in the *WINNING_STATES* array define the bits that should be activated in each of those terminal states. With the `BitwiseAnd(state, Int(WINING_STATES[0])) == Int(WINING_STATES[0])` operation we are making sure that the required bits are activated in order to match the winning state 448 which is the state where the last row in the board is filled with the same marks. We are performing the same operation for all the other 7 possible winning states. If one of those conditions is true it means that we are in a terminal state. #TODO: ADD IMAGE OF 448
+In the Tic-Tac-Toe game there are 8 possible winning states. Since we are representing the game state as a bit mask the numbers specified in the *WINNING_STATES* array define the bits that should be activated in each of those terminal states. With the `BitwiseAnd(state, Int(WINING_STATES[0])) == Int(WINING_STATES[0])` operation we are making sure that the required bits are activated in order to match the winning state 448 which is the state where the last row in the board is filled with the same marks. We are performing the same operation for all the other 7 possible winning states. If one of those conditions is true it means that we are in a terminal state. On the image bellow you can see an illustration of one winning state operation check:
+
+![Winning State](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/winning_state_sample.png?raw=true)
+
+Just for illustration purposes, the bits that we do not care about in the state variable are marked with "*", they actually will have values either 0 or 1.
+
+The *is_tie*() function, as it name suggests, checks whether the current state of the game ended up with a tie. To check this, we get all of the activated bits from the states of the both players and see whether this number is equal to 511. The decimal number  511<sub>10</sub> = 111111111<sub>2</sub> which means that all of the places in the board have been filled.
+
+```python
+def is_tie():
+    state_x = App.globalGet(AppVariables.PlayerXState)
+    state_o = App.globalGet(AppVariables.PlayerOState)
+    return Int(511) == BitwiseOr(state_x, state_o)
+```
+

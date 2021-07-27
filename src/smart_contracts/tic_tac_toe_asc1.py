@@ -153,7 +153,7 @@ def play_action_logic():
     is passed as an argument to the application call.
     :return:
     """
-    position_index = Int(8) - Btoi(Txn.application_args[1])
+    position_index = Btoi(Txn.application_args[1])
 
     state_x = App.globalGet(AppVariables.PlayerXState)
     state_o = App.globalGet(AppVariables.PlayerOState)
