@@ -544,7 +544,7 @@ def start_game(self, client):
 
 Application call transaction that performs an action for the specified player at the specified action position. With this function we are updating the global state of the Tic-Tac-Toe ASC1. The *player_id* argument should be either "X" or "O".
 
-```
+```python
 def play_action(self, client, player_id: str, action_position: int):
     app_args = [
         "ActionMove",
