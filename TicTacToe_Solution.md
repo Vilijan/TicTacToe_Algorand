@@ -276,8 +276,8 @@ Up until now we have described how we can start the game with setting up the pla
 
 This function handles the logic for refunding the submitted money to the escrow address in case of a winner, tie or timeout termination. If the player whose turn it is, hasn't made a move for the predefined period of time stored in the *ActionTimeout* global variable, the other player is declared as a winner and can withdraw the money. The money can be refunded with one of the following two transactions:
 
--  In case of a win, the money from the escrow address should be able to be refunded only by the player who won the game. That is why we need to perform an atomic transfer of 2 transactions where the first transaction is an application call to the Tic-Tac-Toe ASC1 which tells the application that we want to refund money, while the second transaction should be a payment transaction from the escrow address to the winner address. The amount refunded to the winner is equal to twice the *BetAmount* global variable.
-- In case of a tie, the money from the escrow address should be equally split to both of the players. That is why this logic is executed within a atomic transfer of 3 transactions. The first transaction is an application call to the Tic-Tac-Toe ASC1, the second and the third are payment transactions from the escrow address to the *PlayerXAddress* and *PlayerOAddress*. Both of the payment transactions should have equal amount which is the same as the *BetAmount* global variable.
+-  In case of a win, the money from the escrow address should be able to be refunded only by the player who won the game. That is why we need to perform an atomic transfer of 2 transactions where the first transaction is an application call to the Tic-Tac-Toe ASC1 which tells the application that we want to refund money, while the second transaction must be a payment transaction from the escrow address to the winner address. The amount refunded to the winner is equal to twice the *BetAmount* global variable.
+- In case of a tie, the money from the escrow address should be equally split to both of the players. That is why this logic is executed within an atomic transfer of 3 transactions. The first transaction is an application call to the Tic-Tac-Toe ASC1, the second and the third are payment transactions from the escrow address to the *PlayerXAddress* and *PlayerOAddress*. Both of the payment transactions should have equal amount which is the same as the *BetAmount* global variable.
 
 The code that performs the money refund logic is shown below.
 
@@ -343,5 +343,357 @@ def clear_program():
     return Return(Int(1))
 ```
 
+# Escrow fund
+
+The escrow fund smart contract is a simple stateless smart contract that is linked to the Tic-Tac-Toe ASC1. This contracts initially  receives the funds by both players. After the game end, the escrow fund should be able to sign a payment transaction to the winner of the game, or to sign transactions to both of the players in case of a tie. 
+
+```python
+def game_funds_escorw(app_id: int):
+    win_refund = Seq([
+        Assert(Gtxn[0].application_id() == Int(app_id)),
+        Assert(Gtxn[1].fee() <= Int(1000)),
+        Assert(Gtxn[1].asset_close_to() == Global.zero_address()),
+        Assert(Gtxn[1].rekey_to() == Global.zero_address())
+    ])
+
+    tie_refund = Seq([
+        Assert(Gtxn[0].application_id() == Int(app_id)),
+        Assert(Gtxn[1].fee() <= Int(1000)),
+        Assert(Gtxn[1].asset_close_to() == Global.zero_address()),
+        Assert(Gtxn[1].rekey_to() == Global.zero_address()),
+        Assert(Gtxn[2].fee() <= Int(1000)),
+        Assert(Gtxn[2].asset_close_to() == Global.zero_address()),
+        Assert(Gtxn[2].rekey_to() == Global.zero_address())
+    ])
+
+    return Seq([
+        Cond(
+            [Global.group_size() == Int(2), win_refund],
+            [Global.group_size() == Int(3), tie_refund],
+        ),
+        Return(Int(1))
+    ])
+```
+
+
+
 # Game Engine service
+
+After we have finished with the implementation of the smart contracts, we need to implement the services that talk to the Algorand network.  The GameEngineService object provides an API for initializing and playing the Tic-Tac-Toe game on the blockchain. The GameEngineService API implements the following methods:
+
+- *init* - initialization of the object, this method receives all of the private keys and addresses for the players.
+- *deploy_application* - deploys the Tic-Tac-Toe ASC1 to the network.
+- *start_game* - marks the start of the game by sending an atomic transfer of 3 transactions to the network.
+- *play_action* - sends a transaction that plays an action in the current instance of the game. This method receives a *player_id* parameter can be either "X" or "O" and a position argument which should be integer between 0 and 8.
+- *win_money_refund* - sends an atomic transfer of 2 transactions to the network which refunds the money from the escrow address to the winner of the game. Here we also pass the *player_id* as argument to note which player is the winner.
+- *tie_money_refund* - sends an atomic transfer of 3 transactions to the network which refunds the money from the escrow address to both of the players. 
+- *fund_escrow* - sends some Algos to the escrow address to handle the fees for the money refund payments.
+
+## Initialization
+
+One instance of the GameEngineService object should represent one game on the blockchain. Within the initializer we need to provide the address of the game creator as well with the addresses of the PlayerX and PlayerO.
+
+```python
+class GameEngineService:
+    def __init__(self,
+                 app_creator_pk,
+                 app_creator_address,
+                 player_x_pk,
+                 player_x_address,
+                 player_o_pk,
+                 player_o_address):
+        self.app_creator_pk = app_creator_pk
+        self.app_creator_address = app_creator_address
+        self.player_x_pk = player_x_pk
+        self.player_x_address = player_x_address
+        self.player_o_pk = player_o_pk
+        self.player_o_address = player_o_address
+        self.teal_version = 4
+
+        self.approval_program_code = approval_program()
+        self.clear_program_code = clear_program()
+
+        self.app_id = None
+        self.escrow_fund_address = None
+        self.escrow_fund_program_bytes = None
+```
+
+In the initializer we fix the teal version to be 4 because we are using some of its features in the Tic-Tac-Toe ASC1. Additionally, we are loading the *approval_program()* and *clear_program()* from the Tic-Tac-Toe ASC1 that were described previously. 
+
+## Application deployment
+
+Once we have initialized the *GameEngineService*, the first think that we need to do is to deploy the application on the network. We deploy the application by submitting an Application Create Transaction on the network where we sent our teal code generated by the smart contract. 
+
+```python
+def deploy_application(self, client):
+    approval_program_compiled = compileTeal(approval_program(),
+                                            mode=Mode.Application,
+                                            version=self.teal_version)
+
+    clear_program_compiled = compileTeal(clear_program(),
+                                         mode=Mode.Application,
+                                         version=self.teal_version)
+
+    approval_program_bytes = NetworkInteraction.compile_program(client=client,
+                                                                source_code=approval_program_compiled)
+
+    clear_program_bytes = NetworkInteraction.compile_program(client=client,
+                                                             source_code=clear_program_compiled)
+
+    global_schema = algo_txn.StateSchema(num_uints=AppVariables.number_of_int(),
+                                         num_byte_slices=AppVariables.number_of_str())
+
+    local_schema = algo_txn.StateSchema(num_uints=0,
+                                        num_byte_slices=0)
+
+    app_transaction = \
+    	ApplicationTransactionRepository.create_application(client=client,
+                                                          creator_private_key=self.app_creator_pk,
+                                                          approval_program=approval_program_bytes,
+                                                          clear_program=clear_program_bytes,
+                                                          global_schema=global_schema,
+                                                          local_schema=local_schema,
+                                                          app_args=None)
+
+    tx_id = NetworkInteraction.submit_transaction(client,
+                                                  transaction=app_transaction,
+                                                  log=False)
+
+    transaction_response = client.pending_transaction_info(tx_id)
+
+    self.app_id = transaction_response['application-index']
+    print(f'Tic-Tac-Toe application deployed with the application_id: {self.app_id}')
+```
+
+## Start game
+
+With this method we execute the *SetupPlayers* action in the Tic-Tac-Toe ASC1. Here we create the escrow fund address to which the players need to sent their money. This function should be called only once per game, otherwise the smart contract will reject this atomic transfer.
+
+```python
+def start_game(self, client):
+    """
+    Atomic transfer of 3 transactions:
+    - 1. Application call
+    - 2. Payment from the Player X address to the Escrow fund address
+    - 3. Payment from the Player O address to the Escrow fund address
+    """
+    if self.app_id is None:
+        raise ValueError('The application has not been deployed')
+
+    if self.escrow_fund_address is not None or self.escrow_fund_program_bytes is not None:
+        raise ValueError('The game has already started!')
+
+    escrow_fund_program_compiled = compileTeal(game_funds_escorw(app_id=self.app_id),
+                                               mode=Mode.Signature,
+                                               version=self.teal_version)
+
+    self.escrow_fund_program_bytes = \
+    								NetworkInteraction.compile_program(client=client,
+                                       								 source_code=escrow_fund_program_compiled)
+
+    self.escrow_fund_address = algo_logic.address(self.escrow_fund_program_bytes)
+
+    player_x_funding_txn = PaymentTransactionRepository.payment(client=client,
+                                                                sender_address=self.player_x_address,
+                                                                receiver_address=self.escrow_fund_address,
+                                                                amount=1000000,
+                                                                sender_private_key=None,
+                                                                sign_transaction=False)
+
+    player_o_funding_txn = PaymentTransactionRepository.payment(client=client,
+                                                                sender_address=self.player_o_address,
+                                                                receiver_address=self.escrow_fund_address,
+                                                                amount=1000000,
+                                                                sender_private_key=None,
+                                                                sign_transaction=False)
+
+    app_args = [
+        "SetupPlayers"
+    ]
+
+    app_initialization_txn = \
+        ApplicationTransactionRepository.call_application(client=client,
+                                                          caller_private_key=self.app_creator_pk,
+                                                          app_id=self.app_id,
+                                                          on_complete=algo_txn.OnComplete.NoOpOC,
+                                                          app_args=app_args,
+                                                          sign_transaction=False)
+
+    gid = algo_txn.calculate_group_id([app_initialization_txn,
+                                       player_x_funding_txn,
+                                       player_o_funding_txn])
+
+    app_initialization_txn.group = gid
+    player_x_funding_txn.group = gid
+    player_o_funding_txn.group = gid
+
+    app_initialization_txn_signed = app_initialization_txn.sign(self.app_creator_pk)
+    player_x_funding_txn_signed = player_x_funding_txn.sign(self.player_x_pk)
+    player_o_funding_txn_signed = player_o_funding_txn.sign(self.player_o_pk)
+
+    signed_group = [app_initialization_txn_signed,
+                    player_x_funding_txn_signed,
+                    player_o_funding_txn_signed]
+
+    txid = client.send_transactions(signed_group)
+
+    print(f'Game started with the transaction_id: {txid}')
+```
+
+## Play action
+
+Application call transaction that performs an action for the specified player at the specified action position. With this function we are updating the global state of the Tic-Tac-Toe ASC1. The *player_id* argument should be either "X" or "O".
+
+```
+def play_action(self, client, player_id: str, action_position: int):
+    app_args = [
+        "ActionMove",
+        action_position]
+
+    player_pk = self.player_x_pk if player_id == "X" else self.player_o_pk
+
+    app_initialization_txn = \
+        ApplicationTransactionRepository.call_application(client=client,
+                                                          caller_private_key=player_pk,
+                                                          app_id=self.app_id,
+                                                          on_complete=algo_txn.OnComplete.NoOpOC,
+                                                          app_args=app_args)
+
+    tx_id = NetworkInteraction.submit_transaction(client,
+                                                  transaction=app_initialization_txn,
+                                                  log=False)
+
+    print(f'{player_id} has been put at position {action_position} in transaction with id: {tx_id}')
+```
+
+## Win money refund
+
+When the game has ended the winner should be able to withdraw the money from the escrow address. This function executes the correct atomic transfer in order for the winner to be able to receive its money. In the *player_id* argument we pass the winner of the game, if we pass the wrong winner the smart contract will reject the withdrawal transaction.
+
+```python
+def win_money_refund(self, client, player_id: str):
+    """
+    Atomic transfer of 2 transactions:
+    1. Application call
+    2. Payment from the Escrow account to winner address either PlayerX or PlayerO.
+    """
+    player_pk = self.player_x_pk if player_id == "X" else self.player_o_pk
+    player_address = self.player_x_address if player_id == "X" else self.player_o_address
+
+    app_args = [
+        "MoneyRefund"
+    ]
+
+    app_withdraw_call_txn = \
+        ApplicationTransactionRepository.call_application(client=client,
+                                                          caller_private_key=player_pk,
+                                                          app_id=self.app_id,
+                                                          on_complete=algo_txn.OnComplete.NoOpOC,
+                                                          app_args=app_args,
+                                                          sign_transaction=False)
+
+    refund_txn = PaymentTransactionRepository.payment(client=client,
+                                                      sender_address=self.escrow_fund_address,
+                                                      receiver_address=player_address,
+                                                      amount=2000000,
+                                                      sender_private_key=None,
+                                                      sign_transaction=False)
+
+    gid = algo_txn.calculate_group_id([app_withdraw_call_txn,
+                                       refund_txn])
+
+    app_withdraw_call_txn.group = gid
+    refund_txn.group = gid
+
+    app_withdraw_call_txn_signed = app_withdraw_call_txn.sign(player_pk)
+
+    refund_txn_logic_signature = algo_txn.LogicSig(self.escrow_fund_program_bytes)
+    refund_txn_signed = algo_txn.LogicSigTransaction(refund_txn, refund_txn_logic_signature)
+
+    signed_group = [app_withdraw_call_txn_signed,
+                    refund_txn_signed]
+
+    txid = client.send_transactions(signed_group)
+
+    print(f'The winning money have been refunded to the player {player_id} in the transaction with id: {txid}')
+
+```
+
+ ## Tie money refund
+
+Similarly like the win money refund function, we need to handle the money refunding in case of a tie. This function executes the correct atomic transfer where the two players receive their initial funded money to the escrow account.
+
+```python
+def tie_money_refund(self, client):
+    """
+    Atomic transfer of 3 transactions:
+    1. Application call
+    2. Payment from the escrow address to the PlayerX address.
+    3. Payment from the escrow address to the PlayerO address.
+    """
+    if self.app_id is None:
+        raise ValueError('The application has not been deployed')
+
+    app_args = [
+        "MoneyRefund"
+    ]
+
+    app_withdraw_call_txn = \
+        ApplicationTransactionRepository.call_application(client=client,
+                                                          caller_private_key=self.app_creator_pk,
+                                                          app_id=self.app_id,
+                                                          on_complete=algo_txn.OnComplete.NoOpOC,
+                                                          app_args=app_args,
+                                                          sign_transaction=False)
+
+    refund_player_x_txn = PaymentTransactionRepository.payment(client=client,
+                                                               sender_address=self.escrow_fund_address,
+                                                               receiver_address=self.player_x_address,
+                                                               amount=1000000,
+                                                               sender_private_key=None,
+                                                               sign_transaction=False)
+
+    refund_player_o_txn = PaymentTransactionRepository.payment(client=client,
+                                                               sender_address=self.escrow_fund_address,
+                                                               receiver_address=self.player_o_address,
+                                                               amount=1000000,
+                                                               sender_private_key=None,
+                                                               sign_transaction=False)
+
+    gid = algo_txn.calculate_group_id([app_withdraw_call_txn,
+                                       refund_player_x_txn,
+                                       refund_player_o_txn])
+
+    app_withdraw_call_txn.group = gid
+    refund_player_x_txn.group = gid
+    refund_player_o_txn.group = gid
+
+    app_withdraw_call_txn_signed = app_withdraw_call_txn.sign(self.app_creator_pk)
+
+    refund_player_x_txn_logic_signature = algo_txn.LogicSig(self.escrow_fund_program_bytes)
+    refund_player_x_txn_signed = \
+        algo_txn.LogicSigTransaction(refund_player_x_txn, refund_player_x_txn_logic_signature)
+
+    refund_player_o_txn_logic_signature = algo_txn.LogicSig(self.escrow_fund_program_bytes)
+    refund_player_o_txn_signed = \
+        algo_txn.LogicSigTransaction(refund_player_o_txn, refund_player_o_txn_logic_signature)
+
+    signed_group = [app_withdraw_call_txn_signed,
+                    refund_player_x_txn_signed,
+                    refund_player_o_txn_signed]
+
+    txid = client.send_transactions(signed_group)
+
+    print(f'The initial bet money have been refunded to the players in the transaction with id: {txid}')
+```
+
+# Deployment on TestNet
+
+I prepared a short video where I show how you can deploy and play the Tic-Tac-Toe game on the Algorand TestNet using the GameServiceEngine described above.
+
+Additionally, on the [official repo](https://github.com/Vilijan/TicTacToe_Algorand) of this application you can run the scripts `player_x_win.py`, `player_o_win.py` and `tie_game.py` if you want to simulate your own games.
+
+#TODO: ADD THE VIDEO :)))))))))))
+
+# Conclusion
 
