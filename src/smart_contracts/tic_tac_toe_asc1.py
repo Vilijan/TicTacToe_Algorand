@@ -224,13 +224,8 @@ def money_refund_logic():
                                App.globalGet(AppVariables.PlayerTurnAddress) == App.globalGet(
                                    AppVariables.PlayerXAddress))
 
-    x_state = App.globalGet(AppVariables.PlayerXState)
-    o_state = App.globalGet(AppVariables.PlayerOState)
-    game_started = And(x_state != Int(0),
-                       o_state != Int(0))
-
-    has_x_won = And(Or(has_x_won_by_playing, has_x_won_by_timeout), game_started)
-    has_o_won = And(Or(has_o_won_by_playing, has_o_won_by_timeout), game_started)
+    has_x_won = Or(has_x_won_by_playing, has_x_won_by_timeout)
+    has_o_won = Or(has_o_won_by_playing, has_o_won_by_timeout)
     game_is_tie = App.globalGet(AppVariables.GameStatus) == Int(3)
 
     x_withdraw = Seq([
