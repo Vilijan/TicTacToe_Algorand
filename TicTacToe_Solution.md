@@ -184,7 +184,7 @@ def initialize_players_logic():
 
 ### Action move
 
-In order to execute an action, we first must check what is the current state of the game. To decouple the code a little bit, we create two separate functions *has_player_won(state)* and *is_tie()* to check whether the game is in a terminal i.e leaf state.
+In order to execute an action, we first must check what is the current state of the game. To decouple the code a little bit, we create two separate functions *has_player_won(state)* and *is_tie()* to check whether the game is in a terminal i.e leaf state. At the end we combine and use those function in the main function responsible for executing an action which is *play_action_logic()* function.
 
 ```python
 WINING_STATES = [448, 56, 7, 292, 146, 73, 273, 84]
@@ -204,7 +204,7 @@ In the Tic-Tac-Toe game there are 8 possible winning states. Since we are repres
 
 ![Winning State](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/winning_state_sample.png?raw=true)
 
-Just for illustration purposes, the bits that we do not care about in the state variable are marked with "*", they actually will have values either 0 or 1.
+Just for illustration purposes, the bits that we do not care about in the state variable are marked with "*", they actually will have values either 0 or 1. On the following [link](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/game_states.txt) you can find drawings about the other winning states.
 
 The *is_tie*() function, as it name suggests, checks whether the current state of the game ended up with a tie. To check this, we get all of the activated bits from the states of the both players and see whether this number is equal to 511. The decimal number  511<sub>10</sub> = 111111111<sub>2</sub> which means that all of the places in the board have been filled.
 
@@ -214,4 +214,134 @@ def is_tie():
     state_o = App.globalGet(AppVariables.PlayerOState)
     return Int(511) == BitwiseOr(state_x, state_o)
 ```
+
+Finally we are at a point where we can implement the *play_action_logic()* function which executes a single game action. 
+
+```python
+def play_action_logic():
+    position_index = Btoi(Txn.application_args[1])
+
+    state_x = App.globalGet(AppVariables.PlayerXState)
+    state_o = App.globalGet(AppVariables.PlayerOState)
+
+    game_action = ShiftLeft(Int(1), position_index) # activate the bit at position "position_index"
+
+    player_x_move = Seq([
+        App.globalPut(AppVariables.PlayerXState, BitwiseOr(state_x, game_action)), # fill the game_action bit
+
+        If(has_player_won(App.globalGet(AppVariables.PlayerXState)),
+           App.globalPut(AppVariables.GameStatus, Int(1))), # update the game status in case of a win
+
+        App.globalPut(AppVariables.PlayerTurnAddress, App.globalGet(AppVariables.PlayerOAddress)), 
+    ])
+
+    player_o_move = Seq([
+        App.globalPut(AppVariables.PlayerOState, BitwiseOr(state_o, game_action)),
+
+        If(has_player_won(App.globalGet(AppVariables.PlayerOState)),
+           App.globalPut(AppVariables.GameStatus, Int(2))),
+
+        App.globalPut(AppVariables.PlayerTurnAddress, App.globalGet(AppVariables.PlayerXAddress)),
+    ])
+
+    return Seq([
+        Assert(position_index >= Int(0)), # valid position interval
+        Assert(position_index <= Int(8)), # valid position interval
+        Assert(Global.latest_timestamp() <= App.globalGet(AppVariables.ActionTimeout)), # valid time interval
+        Assert(App.globalGet(AppVariables.GameStatus) == DefaultValues.GameStatus), # is game active
+        Assert(Txn.sender() == App.globalGet(AppVariables.PlayerTurnAddress)), # valid player
+        Assert(And(BitwiseAnd(state_x, game_action) == Int(0),
+                   BitwiseAnd(state_o, game_action) == Int(0))), # the i-th position in the board is empty
+        Cond(
+            [Txn.sender() == App.globalGet(AppVariables.PlayerXAddress), player_x_move],
+            [Txn.sender() == App.globalGet(AppVariables.PlayerOAddress), player_o_move],
+        ),
+        If(is_tie(), App.globalPut(AppVariables.GameStatus, Int(3))), # adjust the status in case of a tie.
+        Return(Int(1))
+    ])
+```
+
+We can summarize the play action function in the following steps and conditions:
+
+- The position index is passed as the second argument to the application call transaction. We convert this argument to an integer, with this we have the index of the position where the mark will be placed. Additionally, we need to make sure that the *position_index* variable is within the allowed range which is between 0 and 8 inclusively. 
+- The *game_action* variable represents the bit that needs to be activated when we place a mark at the specified position index. We achieve this by shifting the number 1 by *position_index* places to the left. *Note: The ShiftLeft PyTeal function is only available in TEAL version 4.*
+- Before executing the action we need to make sure that the game hasn't ended by timeout i.e we are in the valid gameplay interval. Also, we need to make sure that the player who sent the application transaction has address equal to the one specified in the *PlayerTurnAddress* global variable. On top of that we need to check whether the *GameStatus* global variable has value of 0 which indicates that the game is currently active, the different meaning of the values of this variable were described previously in more details.
+- We must check whether the *position_index* position in the board is empty. We achieve this by performing a `BitwiseAnd` operation on both states with the current *game_action* to check whether the *position_index* bit is activated. If the *position_index* bit is not activated in both state variables, it means that there is no mark on that position in the board.
+- When we finally perform a player move, we need to make sure that we activate the *position_index* bit in the current player's state. If this action results in a win, we must update the *GameStatus* in order to note that the current player has won the game. In the end we need to change the *PlayerTurnAddress* variable to the address of the other player because the Tic-Tac-Toe game is played interchangeably.
+- In a case of a tie, we need to update the GameStus as well in order to note that the current game has ended with a tie.
+
+### Money refund
+
+Up until now we have described how we can start the game with setting up the players and how we can perform an action using an application call transaction on the Tic-Tac-Toe ASC1. The one thing that is left to implement is the money refund at the end of the game, which we do by implementing the *money_refund_logic()* function.
+
+This function handles the logic for refunding the submitted money to the escrow address in case of a winner, tie or timeout termination. If the player whose turn it is, hasn't made a move for the predefined period of time stored in the *ActionTimeout* global variable, the other player is declared as a winner and can withdraw the money. The money can be refunded with one of the following two transactions:
+
+-  In case of a win, the money from the escrow address should be able to be refunded only by the player who won the game. That is why we need to perform an atomic transfer of 2 transactions where the first transaction is an application call to the Tic-Tac-Toe ASC1 which tells the application that we want to refund money, while the second transaction should be a payment transaction from the escrow address to the winner address. The amount refunded to the winner is equal to twice the *BetAmount* global variable.
+- In case of a tie, the money from the escrow address should be equally split to both of the players. That is why this logic is executed within a atomic transfer of 3 transactions. The first transaction is an application call to the Tic-Tac-Toe ASC1, the second and the third are payment transactions from the escrow address to the *PlayerXAddress* and *PlayerOAddress*. Both of the payment transactions should have equal amount which is the same as the *BetAmount* global variable.
+
+The code that performs the money refund logic is shown below.
+
+```python
+def money_refund_logic():
+    has_x_won_by_playing = App.globalGet(AppVariables.GameStatus) == Int(1) # normal win by placing marks
+    has_o_won_by_playing = App.globalGet(AppVariables.GameStatus) == Int(2) # normal win by placing marks
+
+    has_x_won_by_timeout = And(App.globalGet(AppVariables.GameStatus) == Int(0),
+                               Global.latest_timestamp() > App.globalGet(AppVariables.ActionTimeout),
+                               App.globalGet(AppVariables.PlayerTurnAddress) == App.globalGet(
+                                   AppVariables.PlayerOAddress)) # win by timeout logic.
+
+    has_o_won_by_timeout = And(App.globalGet(AppVariables.GameStatus) == Int(0),
+                               Global.latest_timestamp() > App.globalGet(AppVariables.ActionTimeout),
+                               App.globalGet(AppVariables.PlayerTurnAddress) == App.globalGet(
+                                   AppVariables.PlayerXAddress)) # win by timeout logic.
+
+    has_x_won = Or(has_x_won_by_playing, has_x_won_by_timeout) # anykind of win
+    has_o_won = Or(has_o_won_by_playing, has_o_won_by_timeout) # anykind of win
+    game_is_tie = App.globalGet(AppVariables.GameStatus) == Int(3) 
+
+    x_withdraw = Seq([
+        Assert(Gtxn[1].receiver() == App.globalGet(AppVariables.PlayerXAddress)), 
+        Assert(Gtxn[1].amount() == Int(2) * App.globalGet(AppVariables.BetAmount)),
+        App.globalPut(AppVariables.GameStatus, Int(1)) 
+    ])
+
+    o_withdraw = Seq([
+        Assert(Gtxn[1].receiver() == App.globalGet(AppVariables.PlayerOAddress)),
+        Assert(Gtxn[1].amount() == Int(2) * App.globalGet(AppVariables.BetAmount)),
+        App.globalPut(AppVariables.GameStatus, Int(2))
+    ])
+
+    tie_withdraw = Seq([
+        Assert(Gtxn[1].receiver() == App.globalGet(AppVariables.PlayerXAddress)),
+        Assert(Gtxn[1].amount() == App.globalGet(AppVariables.BetAmount)),
+        Assert(Gtxn[2].type_enum() == TxnType.Payment),
+        Assert(Gtxn[2].sender() == App.globalGet(AppVariables.FundsEscrowAddress)),
+        Assert(Gtxn[2].receiver() == App.globalGet(AppVariables.PlayerOAddress)),
+        Assert(Gtxn[2].amount() == App.globalGet(AppVariables.BetAmount))
+    ])
+
+    return Seq([
+        Assert(Gtxn[1].type_enum() == TxnType.Payment),
+        Assert(Gtxn[1].sender() == App.globalGet(AppVariables.FundsEscrowAddress)),
+        Cond(
+            [has_x_won, x_withdraw],
+            [has_o_won, o_withdraw],
+            [game_is_tie, tie_withdraw]
+        ),
+        Return(Int(1))
+    ])
+```
+
+With this function we complete the PyTeal logic implementation for the Tic-Tac-Toe smart contract. At the end we just need to declare the approval and the clear programs.
+
+```python
+def approval_program():
+    return application_start()
+
+def clear_program():
+    return Return(Int(1))
+```
+
+# Game Engine service
 
