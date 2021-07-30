@@ -695,9 +695,8 @@ Additionally, on the [official repo](https://github.com/Vilijan/TicTacToe_Algora
 
 Click on the image below to watch the video.
 
-[![Watch the video](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/tictactoe_thumbnail.png?raw=true)](youtube.com/watch?v=S9I_74Hfg54&t=1s&ab_channel=VilijanMonev)
+[![Watch the video](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/tictactoe_thumbnail.png?raw=true)](https://www.youtube.com/watch?v=S9I_74Hfg54&t=1s&ab_channel=VilijanMonev)
 
 
 # Conclusion
-
 
