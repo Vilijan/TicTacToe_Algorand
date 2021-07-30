@@ -6,6 +6,27 @@ Two players submit equal amount of algos to an escrow address which marks the st
 
 The goal of this solution is to present a starting point for developers to easily build board games as DApps on the Algorand Blockchain. The idea is that they should be able to change the game logic from Tic-Tac-Toe to whichever board game they prefer like Chess, Connect4, Go or others and deploy it on the network.
 
+# Table of content
+- [Overview](#overview)
+- [Application architecture](#application-architecture)
+- [State representation and transition](#state-representation-and-transition)
+- [Tic-Tac-Toe ASC1](#tic-tac-toe-asc1)
+    + [Application start](#application-start)
+    + [Application initialization logic](#application-initialization-logic)
+    + [Setup players](#setup-players)
+    + [Action move](#action-move)
+    + [Money refund](#money-refund)
+- [Escrow fund](#escrow-fund)
+- [Game Engine service](#game-engine-service)
+  * [Initialization](#initialization)
+  * [Application deployment](#application-deployment)
+  * [Start game](#start-game)
+  * [Play action](#play-action)
+  * [Win money refund](#win-money-refund)
+  * [Tie money refund](#tie-money-refund)
+- [Deployment on TestNet](#deployment-on-testnet)
+- [Final thoughts](#final-thoughts)
+
 # Application architecture
 
 The Tic-Tac-Toe decentralized application has two main components:
@@ -694,6 +715,8 @@ I prepared a short video where I show how you can deploy and play the Tic-Tac-To
 Additionally, on the [official repo](https://github.com/Vilijan/TicTacToe_Algorand) of this application you can run the scripts `player_x_win.py`, `player_o_win.py` and `tie_game.py` if you want to simulate your own games.
 
 [![Watch the video](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/tictactoe_video_thumbnail.png?raw=true)](https://www.youtube.com/watch?v=S9I_74Hfg54&t=1s&ab_channel=VilijanMonev)
+
+
 
 ## Final thoughts
 
