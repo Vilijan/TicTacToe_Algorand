@@ -693,9 +693,7 @@ I prepared a short video where I show how you can deploy and play the Tic-Tac-To
 
 Additionally, on the [official repo](https://github.com/Vilijan/TicTacToe_Algorand) of this application you can run the scripts `player_x_win.py`, `player_o_win.py` and `tie_game.py` if you want to simulate your own games.
 
-Click on the image below to watch the video.
-
-[![Watch the video](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/tictactoe_thumbnail.png?raw=true)](https://www.youtube.com/watch?v=S9I_74Hfg54&t=1s&ab_channel=VilijanMonev)
+[![Watch the video](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/tictactoe_video_thumbnail.png?raw=true)](https://www.youtube.com/watch?v=S9I_74Hfg54&t=1s&ab_channel=VilijanMonev)
 
 
 # Conclusion
