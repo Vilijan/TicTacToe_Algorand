@@ -695,6 +695,8 @@ Additionally, on the [official repo](https://github.com/Vilijan/TicTacToe_Algora
 
 [![Watch the video](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/tictactoe_video_thumbnail.png?raw=true)](https://www.youtube.com/watch?v=S9I_74Hfg54&t=1s&ab_channel=VilijanMonev)
 
+## Final thoughts
 
-# Conclusion
+If you have made it this far I want to sincerely thank you for reading this solution. I hope that you learned something new and interesting as it was the case for me.
 
+I hope that this solution will help you to build your favorite game on the Algorand Blockchain.
