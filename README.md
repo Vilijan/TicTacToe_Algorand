@@ -7,7 +7,7 @@ The goal of this solution is to present a starting point for developers to easil
 
 # Environment setup
 
-- `pip install requirements.txt`
+- `pip install -r requirements.txt`
 - This solution uses PyTeal which compiles into TEAL 4. However as of time of writing this, the official version of PyTeal still does not support the TEAL 4. That is why I downloaded the [official repository](https://github.com/algorand/pyteal) and install it using `pip install -e .` in my current conda environment.
 - Configure a `config.yml` file with the properties shown below:
 
