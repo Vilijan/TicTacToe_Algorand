@@ -1,2 +1,2 @@
-py_algorand_sdk==1.5.0
-PyYAML==5.4.1
+py_algorand_sdk
+PyYAML
