@@ -76,7 +76,9 @@ class GameEngineService:
         transaction_response = client.pending_transaction_info(tx_id)
 
         self.app_id = transaction_response['application-index']
-        print(f'Tic-Tac-Toe application deployed with the application_id: {self.app_id}')
+        print(f"Tic-Tac-Toe application deployed with the application_id: {self.app_id}")
+
+        return f"Tic-Tac-Toe application deployed with the application_id: {self.app_id}"
 
     def start_game(self, client):
         """
@@ -146,7 +148,9 @@ class GameEngineService:
 
         txid = client.send_transactions(signed_group)
 
-        print(f'Game started with the transaction_id: {txid}')
+        print(f"Game started with the transaction_id: {txid}")
+
+        return f"Game started with the transaction_id: {txid}"
 
     def play_action(self, client, player_id: str, action_position: int):
         """
@@ -179,7 +183,9 @@ class GameEngineService:
                                                       transaction=app_initialization_txn,
                                                       log=False)
 
-        print(f'{player_id} has been put at position {action_position} in transaction with id: {tx_id}')
+        print(f"{player_id} has been put at position {action_position} in transaction with id: {tx_id}")
+
+        return f"{player_id} has been put at position {action_position} in transaction with id: {tx_id}"
 
     def fund_escrow(self, client):
         """
@@ -199,6 +205,7 @@ class GameEngineService:
                                                       log=False)
 
         print(f'Escrow address has been funded in transaction with id: {tx_id}')
+        return f'Escrow address has been funded in transaction with id: {tx_id}'
 
     def win_money_refund(self, client, player_id: str):
         """
@@ -253,7 +260,8 @@ class GameEngineService:
 
         txid = client.send_transactions(signed_group)
 
-        print(f'The winning money have been refunded to the player {player_id} in the transaction with id: {txid}')
+        print(f"The winning money have been refunded to the player {player_id} in the transaction with id: {txid}")
+        return f"The winning money have been refunded to the player {player_id} in the transaction with id: {txid}"
 
     def tie_money_refund(self, client):
         """
@@ -317,5 +325,6 @@ class GameEngineService:
 
         txid = client.send_transactions(signed_group)
 
-        print(f'The initial bet money have been refunded to the players in the transaction with id: {txid}')
+        print(f"The initial bet money have been refunded to the players in the transaction with id: {txid}")
 
+        return f"The initial bet money have been refunded to the players in the transaction with id: {txid}"
