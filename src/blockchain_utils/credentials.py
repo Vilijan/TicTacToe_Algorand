@@ -1,4 +1,5 @@
 from algosdk.v2client import algod
+from algosdk.v2client import indexer
 from algosdk import account as algo_acc
 import yaml
 import os
@@ -32,6 +33,18 @@ def get_client():
 
     algod_client = algod.AlgodClient(token, address, headers=purestake_token)
     return algod_client
+
+
+def get_indexer():
+    config = load_config()
+
+    token = config.get('client_credentials').get('token')
+    headers = {'X-Api-key': token}
+    my_indexer = indexer.IndexerClient(indexer_token=token,
+                                       indexer_address="https://testnet-algorand.api.purestake.io/idx2",
+                                       headers=headers)
+
+    return my_indexer
 
 
 def get_account_credentials(account_id: int) -> (str, str, str):
@@ -76,4 +89,3 @@ def add_account_to_config():
 
     with open(config_location, 'w') as file:
         yaml.safe_dump(cur_yaml, file)
-
