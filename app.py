@@ -1,13 +1,14 @@
 import streamlit as st
 from src.blockchain_utils.credentials import get_client, get_account_credentials, get_indexer
 from src.services.game_engine_service import GameEngineService
+import algosdk
 
 client = get_client()
 indexer = get_indexer()
 
-acc_pk, acc_address, _ = get_account_credentials(account_id=5)
-player_x_pk, player_x_address, _ = get_account_credentials(account_id=1)
-player_o_pk, player_o_address, _ = get_account_credentials(account_id=2)
+acc_pk, acc_address = algosdk.account.generate_account()
+player_x_pk, player_x_address = algosdk.account.generate_account()
+player_o_pk, player_o_address = algosdk.account.generate_account()
 
 if "submitted_transactions" not in st.session_state:
     st.session_state.submitted_transactions = []
@@ -48,6 +49,8 @@ st.title("Addresses")
 st.write(f"app_creator: {acc_address}")
 st.write(f"player_x: {player_x_address}")
 st.write(f"player_o: {player_o_address}")
+
+st.write("You need to fund those accounts on the following link: https://bank.testnet.algorand.network/")
 
 
 # Step 1: App deployment.
