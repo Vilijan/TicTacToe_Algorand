@@ -33,9 +33,10 @@ client_credentials:
 
 ```
 
-# Deployment on Algorand TestNet
+# Starting the application
 
-- Once you have setup your config file and funded the accounts that are specified in the config, you will be able to run the scripts: `player_x_win.py`, `player_o_win.py`, `tie_game.py` and `timeout_win.py`
-- You can watch the following video that gives a short introduction to the solution as well as how you can play one TicTacToe game on the Algorand TestNet
+- Once you have setup your config file you will be able to use the UI that is located in the `app.py` file in order to play a game on the Algorand Testnet.
+- In order to start the UI you need to be located in the root of the project and run the following command: `streamlit run app.py`
+- You can watch the following video that gives a short introduction to the solution as well as how you can play one TicTacToe game on the Algorand TestNet using the UI.
 
-[![Watch the video](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/tictactoe_video_thumbnail.png?raw=true)](https://www.youtube.com/watch?v=S9I_74Hfg54&t=1s&ab_channel=VilijanMonev)
+[![Watch the video](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/video_bg.png?raw=true)](https://www.youtube.com/watch?v=5FSWJR7fDZY&t=9s&ab_channel=VilijanMonev)
