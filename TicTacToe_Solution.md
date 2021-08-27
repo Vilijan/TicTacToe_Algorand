@@ -712,7 +712,7 @@ def tie_money_refund(self, client):
 
 I prepared a short video where I play a single game using the UI on the Algorand Testnet.
 
-![https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/video_bg.png](https://www.youtube.com/watch?v=5FSWJR7fDZY&t=9s&ab_channel=VilijanMonev)
+[![Watch the video](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/video_bg.png?raw=true)](https://www.youtube.com/watch?v=5FSWJR7fDZY&t=9s&ab_channel=VilijanMonev)
 
 ## Final thoughts
 
