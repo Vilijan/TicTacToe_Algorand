@@ -710,13 +710,9 @@ def tie_money_refund(self, client):
 
 # Deployment on TestNet
 
-I prepared a short video where I show how you can deploy and play the Tic-Tac-Toe game on the Algorand TestNet using the GameServiceEngine described above.
+I prepared a short video where I play a single game using the UI on the Algorand Testnet.
 
-Additionally, on the [official repo](https://github.com/Vilijan/TicTacToe_Algorand) of this application you can run the scripts `player_x_win.py`, `player_o_win.py` and `tie_game.py` if you want to simulate your own games.
-
-[![Watch the video](https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/tictactoe_video_thumbnail.png?raw=true)](https://www.youtube.com/watch?v=S9I_74Hfg54&t=1s&ab_channel=VilijanMonev)
-
-
+![https://github.com/Vilijan/TicTacToe_Algorand/blob/main/images/video_bg.png](https://www.youtube.com/watch?v=5FSWJR7fDZY&t=9s&ab_channel=VilijanMonev)
 
 ## Final thoughts
 
