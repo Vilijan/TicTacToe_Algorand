@@ -1,3 +1,4 @@
 py_algorand_sdk
 PyYAML
 streamlit
+pyteal
