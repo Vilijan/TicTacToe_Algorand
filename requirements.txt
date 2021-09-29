@@ -1,4 +1,4 @@
-py_algorand_sdk
-PyYAML
-streamlit
-pyteal
+py_algorand_sdk==1.7.0
+streamlit==0.89.0
+pyteal==0.8.0
+PyYAML==5.4.1
