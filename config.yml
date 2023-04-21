@@ -1,0 +1,18 @@
+accounts:
+  account_1:
+    address: PUBLIC_KEY_VALUE
+    mnemonic: MNEMONIC_WORDS
+    private_key: PRIVATE_KEY_VALUE
+  account_2:
+    address: PUBLIC_KEY_VALUE
+    mnemonic: MNEMONIC_WORDS
+    private_key: PRIVATE_KEY_VALUE
+  account_3:
+    address: PUBLIC_KEY_VALUE
+    mnemonic: MNEMONIC_WORDS
+    private_key: PRIVATE_KEY_VALUE
+  total: 3
+
+client_credentials:
+  address: ADDRESS_VALUE
+  token: TOKEN_VALUE
